@@ -1,4 +1,36 @@
-# pv_dashboard.py
+# # pv_dashboard.py
+
+# import os
+# import streamlit as st
+# import pandas as pd
+# import numpy as np
+# import plotly.express as px
+# import matplotlib.pyplot as plt
+# import seaborn as sns
+
+# from statsmodels.tsa.seasonal import seasonal_decompose
+# from statsmodels.tsa.stattools import adfuller
+# from statsmodels.tsa.statespace.sarimax import SARIMAX
+# from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+# from sklearn.metrics import mean_absolute_error, mean_squared_error
+
+# # --- Configuration ---
+# st.set_page_config(page_title="PV Dashboard")
+# st.title("☀️ PV Data Analysis Dashboard – PV-001")
+
+# DATA_PATH = "D:/truxco energy dataset"
+# FILE_NAME = 'pv_data.parquet'
+
+# @st.cache_data
+# def load_data():
+#     df = pd.read_csv(os.path.join(DATA_PATH, FILE_NAME), low_memory=False)
+#     df['datetime'] = pd.to_datetime(df['datetime_millis'], errors='coerce')
+#     df = df.dropna(subset=['datetime', 'pac'])
+#     df = df.sort_values('datetime')
+#     df = df[df['device_id'] == 'PV-001']
+#     return df
+
+# df = load_data()
 
 import os
 import streamlit as st
@@ -7,6 +39,7 @@ import numpy as np
 import plotly.express as px
 import matplotlib.pyplot as plt
 import seaborn as sns
+import gdown
 
 from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.tsa.stattools import adfuller
@@ -18,12 +51,13 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 st.set_page_config(page_title="PV Dashboard")
 st.title("☀️ PV Data Analysis Dashboard – PV-001")
 
-DATA_PATH = "D:/truxco energy dataset"
-FILE_NAME = 'pv-data.csv'
-
 @st.cache_data
 def load_data():
-    df = pd.read_csv(os.path.join(DATA_PATH, FILE_NAME), low_memory=False)
+    file_path = "pv_data.parquet"
+    if not os.path.exists(file_path):
+        gdown.download("https://drive.google.com/uc?id=1HDQTk8LfEklxxBa33XWzSY5P55ecyxKG", file_path, quiet=False)
+    
+    df = pd.read_parquet(file_path)
     df['datetime'] = pd.to_datetime(df['datetime_millis'], errors='coerce')
     df = df.dropna(subset=['datetime', 'pac'])
     df = df.sort_values('datetime')
@@ -31,6 +65,7 @@ def load_data():
     return df
 
 df = load_data()
+
 
 # --- Data Overview ---
 st.subheader("📊 Data Preview")
