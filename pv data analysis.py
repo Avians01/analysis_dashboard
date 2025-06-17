@@ -73,8 +73,6 @@ df_hourly = df_device['pac'].resample('h').mean()
 df_hourly.plot(title="pac - PV001- hourly plot")
 plt.show()
 
-
-# Filter PV-001 and resample to hourly mean PAC
 df_device = df[df['device_id'] == 'PV-001']
 df_hourly = df_device['pac'].resample('h').mean().reset_index()  # Reset index to get datetime as a column
 
@@ -98,17 +96,14 @@ fig = px.line(df_hourly_status, x='datetime', y='inverter_status',
 fig.show()
 
 #TIME SERIES ANALYSIS
-#datetime is parsed
 if 'datetime' not in df.columns:
     df['datetime'] = pd.to_datetime(df['timestamp'], unit='ms')
 
-# #Filtering and setting index
 df_device = df[df['device_id'] == 'PV-001'].copy()
 df_device = df_device.set_index('datetime')
 df_device_numeric = df_device.select_dtypes(include='number')
 df_hourly = df_device_numeric.resample('h').mean()
 df_hourly = df_hourly.interpolate()
-
 
 #seasonal decomposition
 from statsmodels.tsa.seasonal import seasonal_decompose
@@ -178,9 +173,6 @@ from statsmodels.tsa.stattools import grangercausalitytests
 df = df.sort_values(by='datetime_millis')
 df = df[['pac', 'inverter_status']].dropna()
 grangercausalitytests(df, maxlag=4)
-
-
-
 
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 import matplotlib.pyplot as plt
@@ -261,7 +253,6 @@ plt.show()
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import numpy as np
 
-# Evaluation Metrics (using actual PAC values, not log)
 rmse = np.sqrt(mean_squared_error(actual, forecast))
 mae = mean_absolute_error(actual, forecast)
 
@@ -273,13 +264,12 @@ def safe_mape(y_true, y_pred):
 def safe_smape(y_true, y_pred):
     y_true, y_pred = np.array(y_true), np.array(y_pred)
     denominator = np.abs(y_true) + np.abs(y_pred)
-    denominator[denominator == 0] = 1e-8  # avoid division by zero
+    denominator[denominator == 0] = 1e-8  
     return 100 * np.mean(2 * np.abs(y_pred - y_true) / denominator)
 
 mape = safe_mape(actual, forecast)
 smape = safe_smape(actual, forecast)
 
-# Display
 print(f"SARIMA RMSE : {rmse:.2f}")
 print(f"SARIMA MAE  : {mae:.2f}")
 print(f"SARIMA MAPE : {mape:.2f}%")
