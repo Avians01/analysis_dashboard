@@ -16,30 +16,21 @@ from statsmodels.tsa.statespace.sarimax import SARIMAX
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
-# --- Configuration ---
 st.set_page_config(page_title="PV Dashboard")
-st.title("☀️ PV Data Analysis Dashboard – PV-001")
+st.title("PV Data Analysis Dashboard – PV-001")
 
 import gdown
 import os
 import pandas as pd
 import streamlit as st
 
-# --- Download and Load from Google Drive ---
 @st.cache_data
 def load_data():
-    # File ID from the shared Google Drive link
     file_id = "1fNYbatRAITaYO0lkicQsyK00Y2vDWD59"
     url = f"https://drive.google.com/uc?id={file_id}"
-
-    # Local file path to save the downloaded CSV
     file_path = "pv-data.csv"
-
-    # Download the file if it doesn't exist
     if not os.path.exists(file_path):
         gdown.download(url, file_path, quiet=False)
-
-    # Load the CSV
     df = pd.read_csv(file_path, low_memory=False)
     df['datetime'] = pd.to_datetime(df['datetime_millis'], errors='coerce')
     df = df.dropna(subset=['datetime', 'pac'])
@@ -49,80 +40,26 @@ def load_data():
 
 df = load_data()
 
-
-# import os
-# import streamlit as st
-# import pandas as pd
-# import numpy as np
-# import plotly.express as px
-# import matplotlib.pyplot as plt
-# import seaborn as sns
-# import gdown
-# import pyarrow.parquet as pq
-
-# from statsmodels.tsa.seasonal import seasonal_decompose
-# from statsmodels.tsa.stattools import adfuller
-# from statsmodels.tsa.statespace.sarimax import SARIMAX
-# from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
-# from sklearn.metrics import mean_absolute_error, mean_squared_error
-
-# # --- Configuration ---
-# st.set_page_config(page_title="PV Dashboard")
-# st.title("☀️ PV Data Analysis Dashboard – PV-001")
-
-# @st.cache_data
-# def load_data():
-#     file_path = "pv_data.parquet"
-#     if not os.path.exists(file_path):
-#         gdown.download("https://drive.google.com/uc?id=1HDQTk8LfEklxxBa33XWzSY5P55ecyxKG", file_path, quiet=False)
-
-#     # Robust parquet read
-#     table = pq.read_table(file_path)
-#     df = table.to_pandas(types_mapper=lambda typ: pd.StringDtype())
-    
-#     # Datetime conversion
-#     if 'datetime_millis' in df.columns:
-#         df['datetime'] = pd.to_datetime(df['datetime_millis'], errors='coerce')
-    
-#     df = df.dropna(subset=['datetime', 'pac'])
-#     df = df.sort_values('datetime')
-#     df = df[df['device_id'] == 'PV-001']
-#     return df
-
-# # Load data safely
-# try:
-#     df = load_data()
-# except Exception as e:
-#     st.error(f"❌ Failed to load data: {e}")
-#     st.stop()
-
-# --- Data Preview ---
-st.subheader("📊 Data Preview")
+st.subheader("Data Preview")
 st.dataframe(df.head(100))
 
-
-
-# --- Data Overview ---
-st.subheader("📊 Data Preview")
+st.subheader("Data Preview")
 st.dataframe(df.head(100))
 
-with st.expander("📈 Basic Statistics"):
+with st.expander("Basic Statistics"):
     st.write(df[['pac', 'eac_today', 'eac_total']].describe())
 
-# --- Time Series Plot ---
-st.subheader("📉 Power Output Over Time")
+st.subheader("Power Output Over Time")
 df_hourly = df.set_index('datetime')['pac'].resample('h').mean().interpolate().reset_index()
 fig1 = px.line(df_hourly, x='datetime', y='pac', title='Hourly Mean PAC Output – PV001')
 st.plotly_chart(fig1, use_container_width=True)
 
-# --- Inverter Status ---
-st.subheader("🔌 Inverter Status Over Time")
+st.subheader("Inverter Status Over Time")
 df_status = df.set_index('datetime')[['inverter_status']].resample('h').mean().reset_index()
 fig2 = px.line(df_status, x='datetime', y='inverter_status', title='Hourly Mean Inverter Status')
 st.plotly_chart(fig2, use_container_width=True)
 
-# --- Seasonal Decomposition ---
-st.subheader("🌀 Seasonal Decomposition")
+st.subheader("Seasonal Decomposition")
 result = seasonal_decompose(df_hourly.set_index('datetime')['pac'], model='additive', period=24)
 fig, axes = plt.subplots(4, 1, figsize=(8, 6), sharex=True)
 result.observed.plot(ax=axes[0], title='Observed')
@@ -132,8 +69,7 @@ result.resid.plot(ax=axes[3], title='Residual')
 plt.tight_layout()
 st.pyplot(fig)
 
-# --- EDA Section ---
-st.subheader("🧪 Exploratory Data Analysis (EDA)")
+st.subheader("Exploratory Data Analysis (EDA)")
 tab1, tab2, tab3 = st.tabs(["Temperature Distribution", "Power vs Temperature", "Diurnal Boxplot"])
 
 with tab1:
@@ -155,14 +91,12 @@ with tab3:
     ax.set_title("Hourly Output Power")
     st.pyplot(fig)
 
-# --- Correlation Heatmap ---
-st.subheader("🔍 Correlation Heatmap")
+st.subheader("Correlation Heatmap")
 fig, ax = plt.subplots(figsize=(6, 4))
 sns.heatmap(df[['pac', 'inverter_status', 'temp1', 'temp2', 'temp3']].corr(), annot=True, cmap='coolwarm', ax=ax)
 st.pyplot(fig)
 
-# --- ADF Stationarity Test ---
-st.subheader("🧪 ADF Stationarity Test")
+st.subheader("ADF Stationarity Test")
 
 adf_result = adfuller(df_hourly['pac'].dropna())
 st.markdown(f"""
@@ -174,15 +108,12 @@ for key, value in adf_result[4].items():
     st.markdown(f"   - {key}: `{value:.4f}`")
 
 if adf_result[1] < 0.05:
-    st.success("✅ The series is **stationary** (p < 0.05).")
+    st.success("The series is **stationary** (p < 0.05).")
 else:
-    st.warning("⚠️ The series is **non-stationary** (p ≥ 0.05).")
+    st.warning("The series is **non-stationary** (p ≥ 0.05).")
 
+st.subheader("SARIMA Forecasting")
 
-# --- SARIMA Forecasting ---
-st.subheader("📈 SARIMA Forecasting")
-
-# Filter for PV-001 and prepare hourly data
 df_device = df.copy()
 df_device['datetime'] = pd.to_datetime(df_device['datetime'], errors='coerce')
 df_device = df_device.set_index('datetime')
@@ -190,7 +121,6 @@ df_device_numeric = df_device.select_dtypes(include='number')
 df_hourly = df_device_numeric.resample('h').mean().interpolate()
 df_hourly['pac_log'] = np.log1p(df_hourly['pac'])
 
-# Train/test split
 train_log = df_hourly['pac_log'][:'2025-05-29']
 test_log = df_hourly['pac_log']['2025-05-30':]
 actual = df_hourly['pac']['2025-05-30':]
@@ -198,37 +128,33 @@ exog_vars = ['temp2']
 exog_train = df_hourly.loc[train_log.index, exog_vars]
 exog_test = df_hourly.loc[test_log.index, exog_vars]
 
-# Fit SARIMA
 model = SARIMAX(train_log, exog=exog_train, order=(2, 1, 2), seasonal_order=(1, 1, 1, 24), enforce_stationarity=False, enforce_invertibility=False)
 results = model.fit(disp=False)
 
-# Predict
 if len(test_log) > 0:
     forecast_log = results.predict(start=test_log.index[0], end=test_log.index[-1], exog=exog_test)
     forecast = np.expm1(forecast_log)
 
-    # Forecast plot
     fig, ax = plt.subplots(figsize=(8, 3))
     ax.plot(np.expm1(train_log[-7*24:]), label='Train')
     ax.plot(actual, label='Actual')
     ax.plot(forecast, label='Forecast')
     ax.set_title("SARIMA Forecast vs Actual – PAC")
     ax.legend()
-    ax.tick_params(axis='x', labelrotation=45)   # ✅ Rotate x-axis labels
+    ax.tick_params(axis='x', labelrotation=45) 
     fig.autofmt_xdate()
     st.pyplot(fig)
 
-    # Residuals
     residuals = actual - forecast
     fig, ax = plt.subplots(figsize=(6, 2.5))
     ax.plot(residuals)
     ax.set_title("Forecast Residuals")
-    ax.tick_params(axis='x', labelrotation=45)   # ✅ Rotate x-axis labels
+    ax.tick_params(axis='x', labelrotation=45) 
     fig.autofmt_xdate()   
     st.pyplot(fig)
 
     # ACF/PACF Lags
-    st.subheader("🧠 Residual ACF/PACF")
+    st.subheader("Residual ACF/PACF")
     lag_input = st.slider("Select number of lags (<= 50% of sample size)", min_value=1, max_value=min(40, len(residuals)//2), value=min(20, len(residuals)//2))
 
     fig1 = plot_acf(residuals.dropna(), lags=lag_input)
@@ -237,7 +163,6 @@ if len(test_log) > 0:
     fig2 = plot_pacf(residuals.dropna(), lags=lag_input)
     st.pyplot(fig2.figure)
 
-    # Evaluation
     def safe_mape(y_true, y_pred):
         y_true, y_pred = np.array(y_true), np.array(y_pred)
         mask = y_true != 0
@@ -255,7 +180,7 @@ if len(test_log) > 0:
     smape = safe_smape(actual, forecast)
     masked_mape = safe_mape(actual[actual > 50], forecast[actual > 50])
 
-    st.subheader("📋 Evaluation Metrics")
+    st.subheader("Evaluation Metrics")
     st.markdown(f"""
     - **RMSE**: `{rmse:.2f}`  
     - **MAE**: `{mae:.2f}`  
