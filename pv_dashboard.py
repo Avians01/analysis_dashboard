@@ -1,6 +1,3 @@
-# pv_dashboard.py
-# streamlit run pv_dashboard.py
-# cd "D:\truxco energy dataset\analysis of pv data"
 
 import os
 import streamlit as st
@@ -111,6 +108,8 @@ if adf_result[1] < 0.05:
     st.success("The series is **stationary** (p < 0.05).")
 else:
     st.warning("The series is **non-stationary** (p ≥ 0.05).")
+
+
 
 st.subheader("SARIMA Forecasting")
 
