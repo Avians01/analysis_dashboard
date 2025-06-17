@@ -1,45 +1,14 @@
-# # pv_dashboard.py
-
-# import os
-# import streamlit as st
-# import pandas as pd
-# import numpy as np
-# import plotly.express as px
-# import matplotlib.pyplot as plt
-# import seaborn as sns
-
-# from statsmodels.tsa.seasonal import seasonal_decompose
-# from statsmodels.tsa.stattools import adfuller
-# from statsmodels.tsa.statespace.sarimax import SARIMAX
-# from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
-# from sklearn.metrics import mean_absolute_error, mean_squared_error
-
-# # --- Configuration ---
-# st.set_page_config(page_title="PV Dashboard")
-# st.title("☀️ PV Data Analysis Dashboard – PV-001")
-
-# DATA_PATH = "D:/truxco energy dataset"
-# FILE_NAME = 'pv_data.parquet'
-
-# @st.cache_data
-# def load_data():
-#     df = pd.read_csv(os.path.join(DATA_PATH, FILE_NAME), low_memory=False)
-#     df['datetime'] = pd.to_datetime(df['datetime_millis'], errors='coerce')
-#     df = df.dropna(subset=['datetime', 'pac'])
-#     df = df.sort_values('datetime')
-#     df = df[df['device_id'] == 'PV-001']
-#     return df
-
-# df = load_data()
+# pv_dashboard.py
+# streamlit run pv_dashboard.py
+# cd "D:\truxco energy dataset\analysis of pv data"
 
 import os
 import streamlit as st
 import pandas as pd
-import numpy as np
+import numpy as np 
 import plotly.express as px
 import matplotlib.pyplot as plt
 import seaborn as sns
-import gdown
 
 from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.tsa.stattools import adfuller
@@ -51,13 +20,27 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 st.set_page_config(page_title="PV Dashboard")
 st.title("☀️ PV Data Analysis Dashboard – PV-001")
 
+import gdown
+import os
+import pandas as pd
+import streamlit as st
+
+# --- Download and Load from Google Drive ---
 @st.cache_data
 def load_data():
-    file_path = "pv_data.parquet"
+    # File ID from the shared Google Drive link
+    file_id = "1fNYbatRAITaYO0lkicQsyK00Y2vDWD59"
+    url = f"https://drive.google.com/uc?id={file_id}"
+
+    # Local file path to save the downloaded CSV
+    file_path = "pv-data.csv"
+
+    # Download the file if it doesn't exist
     if not os.path.exists(file_path):
-        gdown.download("https://drive.google.com/uc?id=1HDQTk8LfEklxxBa33XWzSY5P55ecyxKG", file_path, quiet=False)
-    
-    df = pd.read_parquet(file_path)
+        gdown.download(url, file_path, quiet=False)
+
+    # Load the CSV
+    df = pd.read_csv(file_path, low_memory=False)
     df['datetime'] = pd.to_datetime(df['datetime_millis'], errors='coerce')
     df = df.dropna(subset=['datetime', 'pac'])
     df = df.sort_values('datetime')
@@ -65,6 +48,58 @@ def load_data():
     return df
 
 df = load_data()
+
+
+# import os
+# import streamlit as st
+# import pandas as pd
+# import numpy as np
+# import plotly.express as px
+# import matplotlib.pyplot as plt
+# import seaborn as sns
+# import gdown
+# import pyarrow.parquet as pq
+
+# from statsmodels.tsa.seasonal import seasonal_decompose
+# from statsmodels.tsa.stattools import adfuller
+# from statsmodels.tsa.statespace.sarimax import SARIMAX
+# from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+# from sklearn.metrics import mean_absolute_error, mean_squared_error
+
+# # --- Configuration ---
+# st.set_page_config(page_title="PV Dashboard")
+# st.title("☀️ PV Data Analysis Dashboard – PV-001")
+
+# @st.cache_data
+# def load_data():
+#     file_path = "pv_data.parquet"
+#     if not os.path.exists(file_path):
+#         gdown.download("https://drive.google.com/uc?id=1HDQTk8LfEklxxBa33XWzSY5P55ecyxKG", file_path, quiet=False)
+
+#     # Robust parquet read
+#     table = pq.read_table(file_path)
+#     df = table.to_pandas(types_mapper=lambda typ: pd.StringDtype())
+    
+#     # Datetime conversion
+#     if 'datetime_millis' in df.columns:
+#         df['datetime'] = pd.to_datetime(df['datetime_millis'], errors='coerce')
+    
+#     df = df.dropna(subset=['datetime', 'pac'])
+#     df = df.sort_values('datetime')
+#     df = df[df['device_id'] == 'PV-001']
+#     return df
+
+# # Load data safely
+# try:
+#     df = load_data()
+# except Exception as e:
+#     st.error(f"❌ Failed to load data: {e}")
+#     st.stop()
+
+# --- Data Preview ---
+st.subheader("📊 Data Preview")
+st.dataframe(df.head(100))
+
 
 
 # --- Data Overview ---
@@ -126,6 +161,24 @@ fig, ax = plt.subplots(figsize=(6, 4))
 sns.heatmap(df[['pac', 'inverter_status', 'temp1', 'temp2', 'temp3']].corr(), annot=True, cmap='coolwarm', ax=ax)
 st.pyplot(fig)
 
+# --- ADF Stationarity Test ---
+st.subheader("🧪 ADF Stationarity Test")
+
+adf_result = adfuller(df_hourly['pac'].dropna())
+st.markdown(f"""
+- **ADF Statistic**: `{adf_result[0]:.4f}`  
+- **p-value**: `{adf_result[1]:.4f}`  
+- **Critical Values**:
+""")
+for key, value in adf_result[4].items():
+    st.markdown(f"   - {key}: `{value:.4f}`")
+
+if adf_result[1] < 0.05:
+    st.success("✅ The series is **stationary** (p < 0.05).")
+else:
+    st.warning("⚠️ The series is **non-stationary** (p ≥ 0.05).")
+
+
 # --- SARIMA Forecasting ---
 st.subheader("📈 SARIMA Forecasting")
 
@@ -161,6 +214,8 @@ if len(test_log) > 0:
     ax.plot(forecast, label='Forecast')
     ax.set_title("SARIMA Forecast vs Actual – PAC")
     ax.legend()
+    ax.tick_params(axis='x', labelrotation=45)   # ✅ Rotate x-axis labels
+    fig.autofmt_xdate()
     st.pyplot(fig)
 
     # Residuals
@@ -168,6 +223,8 @@ if len(test_log) > 0:
     fig, ax = plt.subplots(figsize=(6, 2.5))
     ax.plot(residuals)
     ax.set_title("Forecast Residuals")
+    ax.tick_params(axis='x', labelrotation=45)   # ✅ Rotate x-axis labels
+    fig.autofmt_xdate()   
     st.pyplot(fig)
 
     # ACF/PACF Lags
