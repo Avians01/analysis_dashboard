@@ -15,7 +15,7 @@ from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 st.set_page_config(page_title="PV Dashboard")
-st.title("PV Data Analysis Dashboard – PV-001")
+st.title("PV Data Analysis Dashboard for PV-001")
 
 @st.cache_data
 def load_data():
