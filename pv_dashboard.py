@@ -34,7 +34,7 @@ def load_data():
 df = load_data()
 
 st.subheader("Data Preview")
-st.dataframe(df.head(100))
+st.dataframe(df.head(5))
 
 with st.expander("Basic Statistics"):
     st.write(df[['pac', 'eac_today', 'eac_total']].describe())
@@ -52,7 +52,8 @@ fig2 = px.line(df_status, x='datetime', y='inverter_status', title='Hourly Mean 
 st.plotly_chart(fig2, use_container_width=True)
 
 # Seasonal decomposition
-st.subheader("Seasonal Decomposition")
+with st.expander("Seasonal Decomposition", expanded=False):
+     st.subheader("Seasonal Decomposition")
 result = seasonal_decompose(df_hourly.set_index('datetime')['pac'], model='additive', period=24)
 fig, axes = plt.subplots(4, 1, figsize=(8, 6), sharex=True)
 result.observed.plot(ax=axes[0], title='Observed')
@@ -92,7 +93,8 @@ with tab3:
         st.warning("`real_output_power` column not found in dataset.")
 
 # Correlation
-st.subheader("Correlation Heatmap")
+with st.expander("Correlation Heatmap", expanded=False):
+    st.subheader("Correlation Heatmap")
 fig, ax = plt.subplots(figsize=(6, 4))
 sns.heatmap(df[['pac', 'inverter_status', 'temp1', 'temp2', 'temp3']].corr(), annot=True, cmap='coolwarm', ax=ax)
 st.pyplot(fig)
@@ -114,7 +116,8 @@ else:
     st.warning("The series is **non-stationary** (p ≥ 0.05).")
 
 # SARIMA Forecasting
-st.subheader("SARIMA Forecasting")
+if st.button("Run SARIMA Forecast"): 
+     st.subheader("SARIMA Forecasting")
 
 df_device = df.copy()
 df_device['datetime'] = pd.to_datetime(df_device['datetime'], errors='coerce')
@@ -130,6 +133,9 @@ actual = df_hourly['pac']['2025-05-30':]
 exog_vars = ['temp2']
 exog_train = df_hourly.loc[train_log.index, exog_vars]
 exog_test = df_hourly.loc[test_log.index, exog_vars]
+import gc
+gc.collect()
+
 
 model = SARIMAX(train_log, exog=exog_train, order=(2, 1, 2), seasonal_order=(1, 1, 1, 24),
                 enforce_stationarity=False, enforce_invertibility=False)
@@ -160,7 +166,8 @@ if len(test_log) > 0:
     st.pyplot(fig)
 
     # ACF/PACF
-    st.subheader("Residual ACF/PACF")
+    if st.checkbox("Show Residual ACF/PACF"):
+        st.subheader("Residual ACF/PACF")
     lag_input = st.slider("Select number of lags", min_value=1, max_value=min(40, len(residuals)//2), value=min(20, len(residuals)//2))
 
     fig1 = plot_acf(residuals.dropna(), lags=lag_input)
@@ -186,6 +193,9 @@ if len(test_log) > 0:
     mape = safe_mape(actual, forecast)
     smape = safe_smape(actual, forecast)
     masked_mape = safe_mape(actual[actual > 50], forecast[actual > 50])
+
+    import gc
+    gc.collect()
 
     st.subheader("Evaluation Metrics")
     st.markdown(f"""
