@@ -6,6 +6,7 @@ import numpy as np
 import plotly.express as px
 import matplotlib.pyplot as plt
 import seaborn as sns
+import gdown
 
 from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.tsa.stattools import adfuller
@@ -15,11 +16,6 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 st.set_page_config(page_title="PV Dashboard")
 st.title("PV Data Analysis Dashboard – PV-001")
-
-import gdown
-import os
-import pandas as pd
-import streamlit as st
 
 @st.cache_data
 def load_data():
@@ -40,22 +36,22 @@ df = load_data()
 st.subheader("Data Preview")
 st.dataframe(df.head(100))
 
-st.subheader("Data Preview")
-st.dataframe(df.head(100))
-
 with st.expander("Basic Statistics"):
     st.write(df[['pac', 'eac_today', 'eac_total']].describe())
 
+# Hourly mean PAC
 st.subheader("Power Output Over Time")
 df_hourly = df.set_index('datetime')['pac'].resample('h').mean().interpolate().reset_index()
 fig1 = px.line(df_hourly, x='datetime', y='pac', title='Hourly Mean PAC Output – PV001')
 st.plotly_chart(fig1, use_container_width=True)
 
+# Inverter status
 st.subheader("Inverter Status Over Time")
 df_status = df.set_index('datetime')[['inverter_status']].resample('h').mean().reset_index()
 fig2 = px.line(df_status, x='datetime', y='inverter_status', title='Hourly Mean Inverter Status')
 st.plotly_chart(fig2, use_container_width=True)
 
+# Seasonal decomposition
 st.subheader("Seasonal Decomposition")
 result = seasonal_decompose(df_hourly.set_index('datetime')['pac'], model='additive', period=24)
 fig, axes = plt.subplots(4, 1, figsize=(8, 6), sharex=True)
@@ -66,6 +62,7 @@ result.resid.plot(ax=axes[3], title='Residual')
 plt.tight_layout()
 st.pyplot(fig)
 
+# EDA Tabs
 st.subheader("Exploratory Data Analysis (EDA)")
 tab1, tab2, tab3 = st.tabs(["Temperature Distribution", "Power vs Temperature", "Diurnal Boxplot"])
 
@@ -76,25 +73,32 @@ with tab1:
     st.pyplot(fig)
 
 with tab2:
-    fig, ax = plt.subplots(figsize=(6, 4))
-    sns.scatterplot(x='temp1', y='real_output_power', data=df, ax=ax)
-    ax.set_title("Power vs Temperature")
-    st.pyplot(fig)
+    if 'real_output_power' in df.columns:
+        fig, ax = plt.subplots(figsize=(6, 4))
+        sns.scatterplot(x='temp1', y='real_output_power', data=df, ax=ax)
+        ax.set_title("Power vs Temperature")
+        st.pyplot(fig)
+    else:
+        st.warning("`real_output_power` column not found in dataset.")
 
 with tab3:
-    df['hour'] = df['datetime'].dt.hour
-    fig, ax = plt.subplots(figsize=(8, 3))
-    sns.boxplot(x='hour', y='real_output_power', data=df, ax=ax)
-    ax.set_title("Hourly Output Power")
-    st.pyplot(fig)
+    if 'real_output_power' in df.columns:
+        df['hour'] = df['datetime'].dt.hour
+        fig, ax = plt.subplots(figsize=(8, 3))
+        sns.boxplot(x='hour', y='real_output_power', data=df, ax=ax)
+        ax.set_title("Hourly Output Power")
+        st.pyplot(fig)
+    else:
+        st.warning("`real_output_power` column not found in dataset.")
 
+# Correlation
 st.subheader("Correlation Heatmap")
 fig, ax = plt.subplots(figsize=(6, 4))
 sns.heatmap(df[['pac', 'inverter_status', 'temp1', 'temp2', 'temp3']].corr(), annot=True, cmap='coolwarm', ax=ax)
 st.pyplot(fig)
 
+# ADF test
 st.subheader("ADF Stationarity Test")
-
 adf_result = adfuller(df_hourly['pac'].dropna())
 st.markdown(f"""
 - **ADF Statistic**: `{adf_result[0]:.4f}`  
@@ -109,8 +113,7 @@ if adf_result[1] < 0.05:
 else:
     st.warning("The series is **non-stationary** (p ≥ 0.05).")
 
-
-
+# SARIMA Forecasting
 st.subheader("SARIMA Forecasting")
 
 df_device = df.copy()
@@ -123,38 +126,42 @@ df_hourly['pac_log'] = np.log1p(df_hourly['pac'])
 train_log = df_hourly['pac_log'][:'2025-05-29']
 test_log = df_hourly['pac_log']['2025-05-30':]
 actual = df_hourly['pac']['2025-05-30':]
+
 exog_vars = ['temp2']
 exog_train = df_hourly.loc[train_log.index, exog_vars]
 exog_test = df_hourly.loc[test_log.index, exog_vars]
 
-model = SARIMAX(train_log, exog=exog_train, order=(2, 1, 2), seasonal_order=(1, 1, 1, 24), enforce_stationarity=False, enforce_invertibility=False)
+model = SARIMAX(train_log, exog=exog_train, order=(2, 1, 2), seasonal_order=(1, 1, 1, 24),
+                enforce_stationarity=False, enforce_invertibility=False)
 results = model.fit(disp=False)
 
 if len(test_log) > 0:
     forecast_log = results.predict(start=test_log.index[0], end=test_log.index[-1], exog=exog_test)
     forecast = np.expm1(forecast_log)
 
+    # Forecast vs Actual
     fig, ax = plt.subplots(figsize=(8, 3))
     ax.plot(np.expm1(train_log[-7*24:]), label='Train')
     ax.plot(actual, label='Actual')
     ax.plot(forecast, label='Forecast')
     ax.set_title("SARIMA Forecast vs Actual – PAC")
     ax.legend()
-    ax.tick_params(axis='x', labelrotation=45) 
+    ax.tick_params(axis='x', labelrotation=45)
     fig.autofmt_xdate()
     st.pyplot(fig)
 
+    # Residuals
     residuals = actual - forecast
     fig, ax = plt.subplots(figsize=(6, 2.5))
     ax.plot(residuals)
     ax.set_title("Forecast Residuals")
-    ax.tick_params(axis='x', labelrotation=45) 
-    fig.autofmt_xdate()   
+    ax.tick_params(axis='x', labelrotation=45)
+    fig.autofmt_xdate()
     st.pyplot(fig)
 
-    # ACF/PACF Lags
+    # ACF/PACF
     st.subheader("Residual ACF/PACF")
-    lag_input = st.slider("Select number of lags (<= 50% of sample size)", min_value=1, max_value=min(40, len(residuals)//2), value=min(20, len(residuals)//2))
+    lag_input = st.slider("Select number of lags", min_value=1, max_value=min(40, len(residuals)//2), value=min(20, len(residuals)//2))
 
     fig1 = plot_acf(residuals.dropna(), lags=lag_input)
     st.pyplot(fig1.figure)
@@ -162,6 +169,7 @@ if len(test_log) > 0:
     fig2 = plot_pacf(residuals.dropna(), lags=lag_input)
     st.pyplot(fig2.figure)
 
+    # Evaluation Metrics
     def safe_mape(y_true, y_pred):
         y_true, y_pred = np.array(y_true), np.array(y_pred)
         mask = y_true != 0
@@ -189,3 +197,4 @@ if len(test_log) > 0:
     """)
 else:
     st.warning("Not enough test data available for forecasting.")
+
